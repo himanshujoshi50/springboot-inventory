@@ -1,9 +1,11 @@
 version: 0.2
+
 env:
   variables:
     IMAGE_REPO_NAME: "springboot-inventory"
     IMAGE_TAG: "latest"
     AWS_REGION: "us-east-1"
+    # AWS_ACCOUNT_ID can be passed from env in CodeBuild or set here if needed
 
 phases:
   pre_build:
@@ -13,8 +15,9 @@ phases:
       - aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $REPO_URI
   build:
     commands:
-      - echo Building Spring Boot JAR...
-      - mvn -B -DskipTests package
+      - echo Building Spring Boot jar with Gradle...
+      - chmod +x ./gradlew || true
+      - ./gradlew clean bootJar -x test --no-daemon
       - echo Building Docker image...
       - docker build -t $IMAGE_REPO_NAME:$IMAGE_TAG .
       - docker tag $IMAGE_REPO_NAME:$IMAGE_TAG $REPO_URI:$IMAGE_TAG
@@ -23,6 +26,7 @@ phases:
       - echo Pushing image to ECR...
       - docker push $REPO_URI:$IMAGE_TAG
       - printf '[{"name":"springboot-container","imageUri":"%s"}]' $REPO_URI:$IMAGE_TAG > imagedefinitions.json
+
 artifacts:
   files:
     - imagedefinitions.json
